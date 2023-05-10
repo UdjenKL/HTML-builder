@@ -14,7 +14,7 @@ console.log('Добро пожаловать! Введите текст:');
 // Обработчик события для ввода текста
 rl.on('line', (input) => {
   // Записываем введенный текст в файл
-  fs.writeFile('output.txt', input, (err) => {
+  fs.writeFile('02-write-file/output.txt', input, (err) => {
     if (err) throw err;
     console.log('Текст успешно записан в файл output.txt!');
     rl.close(); // Закрываем объект для чтения из консоли

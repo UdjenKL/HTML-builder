@@ -25,4 +25,4 @@ async function copyDir(sourceDir, targetDir) {
 }
 
 // пример использования
-copyDir('files', 'files-copy');
+copyDir('04-copy-directory/files', '04-copy-directory/files-copy');

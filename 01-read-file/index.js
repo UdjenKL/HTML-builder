@@ -3,7 +3,7 @@ const fs = require('fs');
 
 // Создаем readStream для чтения файла 'text.txt' с помощью метода createReadStream
 // Параметр 'utf8' указывает, что мы хотим читать файл как текст в кодировке UTF-8.
-const readStream = fs.createReadStream('text.txt', 'utf8');
+const readStream = fs.createReadStream('01-read-file/text.txt', 'utf8');
 
 // Добавляем обработчик событий 'data', который вызывается каждый раз, когда readStream получает новый фрагмент данных из файла.
 // Мы выводим каждый фрагмент данных в консоль с помощью console.log(chunk).
