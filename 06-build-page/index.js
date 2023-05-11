@@ -1,63 +1,81 @@
-const fs = require('fs');
-const path = require('path');
-const { promisify } = require('util');
+const fs = require('fs'); // Подключаем модуль для работы с файловой системой
+const path = require('path'); // Подключаем модуль для работы с путями
+const { promisify } = require('util'); // Подключаем модуль для промисификации функций
 
-const COMPONENTS_DIR = path.join(__dirname, 'components');
-const STYLES_DIR = path.join(__dirname, 'styles');
-const ASSETS_DIR = path.join(__dirname, 'assets');
-const DIST_DIR = path.join(__dirname, 'project-dist');
+const COMPONENTS_DIR = path.join(__dirname, 'components'); // Путь к директории с компонентами
+const STYLES_DIR = path.join(__dirname, 'styles'); // Путь к директории со стилями
+const ASSETS_DIR = path.join(__dirname, 'assets'); // Путь к директории с ресурсами
+const DIST_DIR = path.join(__dirname, 'project-dist'); // Путь к директории, в которую будет собираться проект
 
+const mkdirAsync = promisify(fs.mkdir);
+const readdirAsync = promisify(fs.readdir);
 const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
-const mkdirAsync = promisify(fs.mkdir);
 const copyFileAsync = promisify(fs.copyFile);
+const statAsync = promisify(fs.stat);
 
 async function buildPage() {
-  // Создание директории project-dist
-  await mkdirAsync(DIST_DIR);
+  try {
+    // Проверяем, существует ли директория project-dist
+    const dirExists = await fs.promises.access(DIST_DIR, fs.constants.F_OK)
+      .then(() => true)
+      .catch(() => false);
 
-  // Загрузка и чтение шаблона index.html
-  const template = await readFileAsync(path.join(__dirname, 'template.html'), 'utf-8');
+    // Если директория не существует, создаем ее
+    if (!dirExists) {
+      await mkdirAsync(DIST_DIR);
+    }
 
-  // Получение списка компонентов
-  const componentFiles = await fs.promises.readdir(COMPONENTS_DIR);
+    // Загружаем и читаем шаблон index.html
+    const template = await readFileAsync(path.join(__dirname, 'template.html'), 'utf-8');
 
-  // Загрузка и чтение содержимого компонентов
-  const components = await Promise.all(
-    componentFiles.map((filename) => readFileAsync(path.join(COMPONENTS_DIR, filename), 'utf-8'))
-  );
+    // Получаем список файлов компонентов
+    const componentFiles = await readdirAsync(COMPONENTS_DIR);
 
-  // Замена тегов в шаблоне на содержимое компонентов
-  const html = componentFiles.reduce((acc, filename, index) => {
-    const componentName = path.parse(filename).name;
-    return acc.replace(new RegExp(`{{${componentName}}}`, 'g'), components[index]);
-  }, template);
+    // Загружаем и читаем содержимое файлов компонентов
+    const components = await Promise.all(
+      componentFiles.map((filename) => readFileAsync(path.join(COMPONENTS_DIR, filename), 'utf-8'))
+    );
 
-  // Создание файла index.html в директории project-dist
-  await writeFileAsync(path.join(DIST_DIR, 'index.html'), html);
+    // Заменяем теги шаблона на содержимое компонентов
+    const html = componentFiles.reduce((acc, filename, index) => {
+      const componentName = path.parse(filename).name;
+      return acc.replace(new RegExp(`{{${componentName}}}`, 'g'), components[index]);
+    }, template);
 
-  // Сборка стилей
-  const styleFiles = await fs.promises.readdir(STYLES_DIR);
+    // Создаем файл index.html в директории project-dist
+    await writeFileAsync(path.join(DIST_DIR, 'index.html'), html);
 
-  const styles = await Promise.all(
-    styleFiles.map((filename) => readFileAsync(path.join(STYLES_DIR, filename), 'utf-8'))
-  );
+    // Собираем стили
+    const styleFiles = await readdirAsync(STYLES_DIR);
 
-  const css = styles.join('\n');
+    const styles = await Promise.all(
+      styleFiles.map((filename) => readFileAsync(path.join(STYLES_DIR, filename), 'utf-8'))
+    );
 
-  // Создание файла style.css в директории project-dist
-  await writeFileAsync(path.join(DIST_DIR, 'style.css'), css);
+    const css = styles.join('\n');
 
-  // Копирование папки assets в директорию project-dist/assets
-  await fs.promises.mkdir(path.join(DIST_DIR, 'assets'), { recursive: true });
+    await writeFileAsync(path.join(DIST_DIR, 'style.css'), css);
 
-  const assetFiles = await fs.promises.readdir(ASSETS_DIR);
+    await mkdirAsync(path.join(DIST_DIR, 'assets'), { recursive: true });
 
-  await Promise.all(
-    assetFiles.map((filename) =>
-      copyFileAsync(path.join(ASSETS_DIR, filename), path.join(DIST_DIR, 'assets', filename))
-    )
-  );
+    const assetFiles = await readdirAsync(ASSETS_DIR);
+
+    await Promise.all(
+      assetFiles.map(async (filename) => {
+        const srcPath = path.join(ASSETS_DIR, filename);
+        const destPath = path.join(DIST_DIR, 'assets', filename);
+        const stats = await statAsync(srcPath);
+        if (stats.isFile()) {
+          return copyFileAsync(srcPath, destPath);
+        }
+      })
+    );
+
+    console.log('Build successful!');
+  } catch (err) {
+    console.error('Build failed:', err);
+  }
 }
 
-buildPage().catch((err) => console.error(err));
+buildPage();
